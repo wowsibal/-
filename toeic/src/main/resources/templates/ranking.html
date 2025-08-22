@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>최종 순위</title>
+    <link rel="stylesheet" th:href="@{/stylesheets/ranking.css}" />
+</head>
+<body>
+<h1 class="title">최종 순위</h1>
+<div class="ranking-container">
+    <table class="ranking-table">
+        <thead>
+        <tr class="head">
+            <th>닉네임</th>
+            <th>맞힌 문제</th>
+            <th>점수</th>
+            <th>순위</th>
+        </tr>
+        </thead>
+        <tbody id="ranking-body">
+        <!-- JS로 데이터 바인딩 -->
+        </tbody>
+    </table>
+    <div class="leave-room">
+        <button id="leave-room-btn">확인</button>
+    </div>
+</div>
+<script th:src="@{/javascripts/ranking.js}"></script>
+</body>
+</html>

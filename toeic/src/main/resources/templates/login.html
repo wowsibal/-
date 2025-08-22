@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <link rel="stylesheet" th:href="@{/stylesheets/login.css}" />
+</head>
+<body>
+<div class="login-container">
+    <img class="title-logo" th:src="@{/images/logo.png}" />
+    <form id="login-form" class="login-form" th:action="@{/login}" method="post">
+    <input type="text" name="userid" placeholder="Enter your ID" class="login-input" required>
+        <input type="password" name="password" placeholder="Enter your Password" class="login-input" required>
+        <div class="button-container">
+            <button type="submit" class="login-button">LOGIN</button>
+            <a th:href="@{/signup}" class="signup-button">SIGN UP</a>
+        </div>
+    </form>
+</div>
+<script th:src="@{/javascripts/login.js}"></script>
+</body>
+</html>

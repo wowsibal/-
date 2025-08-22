@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Page</title>
+    <script th:src="@{/socket.io/socket.io.js}"></script>
+    <link rel="stylesheet" th:href="@{/stylesheets/gameRoom.css}">
+</head>
+<body>
+<div class="container">
+    <!-- 플레이어 영역 -->
+    <div class="players">
+        <!-- 플레이어 슬롯이 동적으로 추가됩니다 -->
+    </div>
+
+    <div class="question-container">
+        <button id="start-quiz-btn">시작하기</button>
+        <div class="question" id="question-text"></div>
+        <div class="choices" id="choices"></div>
+    </div>
+
+    <div class="second_container">
+        <div class="chat">
+            <div id="chat-messages" class="chat-box"></div>
+            <input type="text" class="input-box" placeholder="메세지를 입력해주세요...">
+        </div>
+
+        <div class="ranking">
+            <h3>현재 순위</h3>
+            <ul class="ranking-list"></ul>
+        </div>
+
+        <div class="leave-room">
+            <button id="leave-room-btn">방 나가기</button>
+        </div>
+    </div>
+</div>
+
+<script th:src="@{/javascripts/gameRoom.js}"></script>
+</body>
+</html>
