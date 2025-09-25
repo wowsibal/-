@@ -12,4 +12,16 @@ public class PageController {
     @GetMapping("/signup")
     public String signup() { return "signup"; }
 
+    @GetMapping("/start")
+    public String start() { return "start"; }
+
+    @GetMapping("/waitingRoom")
+    public String waitingRoom() { return "waitingRoom"; }
+
+    @GetMapping("/gameroom")
+    public String gameroom() { return "gameroom"; }
+
+    @GetMapping("/ranking")
+    public String ranking() { return "ranking"; }
+
 }

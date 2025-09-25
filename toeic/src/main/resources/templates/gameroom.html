@@ -2,41 +2,69 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz Page</title>
-    <script th:src="@{/socket.io/socket.io.js}"></script>
-    <link rel="stylesheet" th:href="@{/stylesheets/gameRoom.css}">
+    <title>Game Room</title>
+    <link rel="stylesheet" th:href="@{/stylesheets/style.css}">
+    <script th:src="@{/javascripts/gameRoom.js}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 </head>
 <body>
-<div class="container">
-    <!-- 플레이어 영역 -->
-    <div class="players">
-        <!-- 플레이어 슬롯이 동적으로 추가됩니다 -->
-    </div>
+<h1>게임 방</h1>
 
-    <div class="question-container">
-        <button id="start-quiz-btn">시작하기</button>
-        <div class="question" id="question-text"></div>
-        <div class="choices" id="choices"></div>
-    </div>
-
-    <div class="second_container">
-        <div class="chat">
-            <div id="chat-messages" class="chat-box"></div>
-            <input type="text" class="input-box" placeholder="메세지를 입력해주세요...">
-        </div>
-
-        <div class="ranking">
-            <h3>현재 순위</h3>
-            <ul class="ranking-list"></ul>
-        </div>
-
-        <div class="leave-room">
-            <button id="leave-room-btn">방 나가기</button>
-        </div>
-    </div>
+<div id="room-info">
+    <p>방 ID: <span id="room-id" th:text="${roomId}">ROOM1</span></p>
+    <p>사용자: <span id="user-name" th:text="${#authentication?.name}">guest</span></p>
 </div>
 
-<script th:src="@{/javascripts/gameRoom.js}"></script>
+<div id="messages"></div>
+
+<!-- 게임방 실시간 스크립트 -->
+<script th:inline="javascript">
+    // roomId는 쿼리스트링(param.roomId) 우선, 없으면 모델의 roomId 또는 기본값
+    const roomId = /*[[${param.roomId} ?: ${roomId} ?: 'ROOM1']]*/ 'ROOM1';
+    const user   = /*[[${#authentication?.name} ?: 'guest']]*/ 'guest';
+
+    const sock  = new SockJS('/ws');
+    const stomp = Stomp.over(sock);
+    stomp.debug = null;
+
+    function connect() {
+      stomp.connect({}, onConnected, onError);
+    }
+
+    function onConnected() {
+      // 해당 방에 구독
+      stomp.subscribe('/topic/room/' + roomId, onMessage);
+
+      // 방 참가 알림
+      stomp.send('/app/room/join', {}, JSON.stringify({ roomId, user }));
+    }
+
+    function onError(err) {
+      console.error('WS error:', err);
+      setTimeout(connect, 2000); // 재연결 시도
+    }
+
+    function onMessage(frame) {
+      const body = JSON.parse(frame.body);
+      const div = document.getElementById("messages");
+      const p = document.createElement("p");
+      p.textContent = body.user + ": " + body.message;
+      div.appendChild(p);
+    }
+
+    // 페이지 떠날 때 방 나가기
+    window.addEventListener('beforeunload', () => {
+      try {
+        stomp.send('/app/room/leave', {}, JSON.stringify({ roomId, user }));
+        stomp.disconnect(() => {}, {});
+      } catch (e) {
+        console.error(e);
+      }
+    });
+
+    connect();
+</script>
+
 </body>
 </html>

@@ -23,42 +23,39 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // CORS 기본값, CSRF 비활성화 (JWT 사용이므로)
                 .cors(cors -> {})
                 .csrf(csrf -> csrf.disable())
-
-                // 세션 사용 안 함 (JWT)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                // URL 접근 제어
                 .authorizeHttpRequests(auth -> auth
-                        // 정적 리소스 & 기타 공개 파일
+                        // 정적 자원
                         .requestMatchers(
-                                "/stylesheets/**",
-                                "/javascripts/**",
-                                "/images/**",
-                                "/webjars/**",
-                                "/favicon.ico",
-                                "/socket.io/**"
+                                "/stylesheets/**", "/javascripts/**", "/images/**",
+                                "/webjars/**", "/favicon.ico"
                         ).permitAll()
 
-                        // 템플릿 뷰(화면) 공개
-                        .requestMatchers(
-                                "/", "/login", "/signup", "/start", "/waitingroom", "/gameroom", "/ranking"
+                        // 페이지(뷰) 경로: GET은 공개
+                        .requestMatchers(HttpMethod.GET,
+                                "/", "/login", "/signup", "/start",
+                                "/waitingRoom", "/gameroom", "/ranking"
                         ).permitAll()
+
+                        // WebSocket 핸드셰이크
+                        .requestMatchers("/ws/**").permitAll()
 
                         // 회원가입/로그인/아이디중복확인 API 공개
-                        .requestMatchers(HttpMethod.POST, "/api/users/register", "/api/users/login").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/users/check-duplicate-id").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/users/register", "/api/users/login"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/users/check-duplicate-id"
+                        ).permitAll()
 
-                        // 나머지는 인증 필요
-                        .anyRequest().authenticated()
+                        // 나머지 API는 인증 필요
+                        .requestMatchers("/api/**").authenticated()
+
+                        .anyRequest().permitAll()
                 )
-
-                // (필요시) H2 콘솔 같은 iframe 허용하려면 frameOptions 비활성화
                 .headers(headers -> headers.frameOptions(frame -> frame.disable()))
-
-                // JWT 필터 등록 (UsernamePasswordAuthenticationFilter 전에)
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider),
                         UsernamePasswordAuthenticationFilter.class);
 

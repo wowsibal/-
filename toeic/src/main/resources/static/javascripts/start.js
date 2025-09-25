@@ -22,10 +22,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Add click event for the start button
         const startButton = document.getElementById('startButton');
         startButton.addEventListener('click', () => {
-            window.location.href = "/waitingRoom.html";
+            window.location.href = "/waitingRoom";
         });
     } catch (error) {
         alert(error.message);
-        window.location.href = "/login.html";
+        window.location.href = "/login";
     }
 });

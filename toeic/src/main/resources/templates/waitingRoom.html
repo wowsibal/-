@@ -1,78 +1,121 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Waiting Room</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>대기방 | Quizgame</title>
+
+    <!-- 스타일 -->
     <link rel="stylesheet" th:href="@{/stylesheets/waitingRoom.css}" />
-    <script th:src="@{/socket.io/socket.io.js}"></script>
+
+    <!-- SockJS / STOMP (webjars) -->
+    <script th:src="@{/webjars/sockjs-client/sockjs.min.js}"></script>
+    <script th:src="@{/webjars/stomp-websocket/stomp.min.js}"></script>
 </head>
 <body>
-<div class="profile-section">
-    <div class="profile-wrapper">
-        <img th:src="@{/images/character_A.png}" alt="Profile Icon" class="profile-icon" id="profileIcon">
-        <img th:src="@{/images/editor.png}" alt="Editor Icon" class="editor-icon" id="editorIcon">
+<header class="wr-header">
+    <h1>퀴즈 대기방</h1>
+    <div class="wr-status">
+        현재 인원: <span id="memberCount">0</span> 명
     </div>
-    <p class="username">로딩 중...</p>
-    <div class="chat">
-        <div class="chat-box"></div>
-        <input type="text" class="input-box" placeholder="메세지를 입력해주세요...">
-        <button id="sendBtn" class="send-btn">전송</button>
-    </div>
-</div>
+</header>
 
-<div class="room-section">
-    <div class="title-button-group">
-        <h1>Waiting Room</h1>
-        <div class="button-group">
-            <button class="create-room-btn">방 만들기</button>
-            <button class="quick-enter-btn">바로 입장</button>
-        </div>
-    </div>
+<main class="wr-main">
+    <section class="wr-info">
+        <div>방 ID: <span id="roomLabel" th:text="${roomId} ?: 'ROOM1'">ROOM1</span></div>
+        <div>내 이름: <span id="userLabel" th:text="${#authentication?.name} ?: 'guest'">guest</span></div>
+    </section>
 
-    <div id="rooms-container" class="rooms-container">
-        <!-- 6개의 빈 방 슬롯 -->
-    </div>
+    <section class="wr-log">
+        <h2>이벤트</h2>
+        <div id="log" class="wr-logbox"></div>
+    </section>
 
-    <div class="pagination">
-        <button class="prev-btn">◀</button>
-        <button class="next-btn">▶</button>
-    </div>
-</div>
+    <section class="wr-actions">
+        <button class="btn start" type="button" onclick="startGame()">게임 시작</button>
+        <a class="btn back" th:href="@{/start}">뒤로가기</a>
+    </section>
+</main>
 
-<div class="modal" id="roomCreationModal">
-    <div class="modal-content">
-        <div class="form-section">
-            <label for="roomName">방 이름</label>
-            <input type="text" id="roomName" placeholder="방 이름을 입력하세요">
-        </div>
-        <div class="game-type-section">
-            <label>게임 유형</label>
-            <div class="button-group">
-                <button class="game-type-btn" data-type="sentenceQuiz">문장 재배열</button>
-                <button class="game-type-btn" data-type="wordQuiz">단어 맞히기</button>
-                <button class="game-type-btn" data-type="blankQuiz">어법 고르기</button>
-            </div>
-        </div>
-        <div class="difficulty-section">
-            <label>난이도</label>
-            <div class="button-group">
-                <button class="difficulty-btn difficulty-hard" data-difficulty="hard">어려움</button>
-                <button class="difficulty-btn difficulty-medium" data-difficulty="normal">보통</button>
-                <button class="difficulty-btn difficulty-easy" data-difficulty="easy">쉬움</button>
-            </div>
-        </div>
-        <div class="modal-actions">
-            <button class="create-btn" id="createRoomBtn">생성하기</button>
-            <button class="cancel-btn" id="cancelRoomBtn">취소</button>
-        </div>
-    </div>
-</div>
-
-<div class="logout-section">
-    <button id="logoutBtn">로그아웃</button>
-</div>
-
+<!-- 페이지 전용 JS (있다면 유지) -->
 <script th:src="@{/javascripts/waitingRoom.js}"></script>
+
+<!-- 실시간 대기방 스크립트 -->
+<script th:inline="javascript">
+    // 서버에서 내려주는 값(없으면 기본값)
+    const roomId = /*[[${roomId}]]*/ 'ROOM1';
+    const user   = /*[[${#authentication?.name}]]*/ 'guest';
+
+    // WebSocket 연결
+    const sock  = new SockJS('/ws');
+    const stomp = Stomp.over(sock);
+    stomp.debug = null; // 콘솔 로그 비활성(원하면 주석 처리)
+
+    function connect() {
+      stomp.connect({}, onConnected, onError);
+    }
+
+    function onConnected() {
+      // 방 브로드캐스트 구독
+      stomp.subscribe('/topic/room/' + roomId, onMessage);
+
+      // 입장 알리기
+      sendJoin();
+    }
+
+    function onError(err) {
+      console.error('WS error:', err);
+      // 간단 재연결
+      setTimeout(connect, 2000);
+    }
+
+    function onMessage(frame) {
+      const body = JSON.parse(frame.body);
+      if (body.type === 'join') {
+        appendLog(`${body.user} 님 입장 (${body.count})`);
+        updateMemberCount(body.count);
+      } else if (body.type === 'leave') {
+        appendLog(`${body.user} 님 퇴장 (${body.count})`);
+        updateMemberCount(body.count);
+      } else if (body.type === 'start') {
+        appendLog(`게임 시작! 현재 인원 ${body.count}`);
+        // 필요 시 게임방으로 이동
+        window.location.href = /*[[@{/gameroom}]]*/ '/gameroom' + `?roomId=${encodeURIComponent(roomId)}`;
+      }
+    }
+
+    function sendJoin() {
+      stomp.send('/app/room/join', {}, JSON.stringify({ roomId, user }));
+    }
+
+    function sendLeave() {
+      try {
+        stomp.send('/app/room/leave', {}, JSON.stringify({ roomId, user }));
+      } catch (e) { /* no-op */ }
+    }
+
+    function startGame() {
+      stomp.send('/app/room/start', {}, JSON.stringify({ roomId }));
+    }
+
+    // 페이지 이탈 시 퇴장
+    window.addEventListener('beforeunload', sendLeave);
+
+    // UI 유틸
+    function appendLog(text) {
+      const box = document.getElementById('log');
+      const p = document.createElement('p');
+      p.textContent = text;
+      box.appendChild(p);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function updateMemberCount(n) {
+      document.getElementById('memberCount').textContent = n ?? 0;
+    }
+
+    // 연결 시작
+    connect();
+</script>
 </body>
 </html>
