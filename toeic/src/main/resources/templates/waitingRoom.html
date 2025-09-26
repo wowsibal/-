@@ -8,16 +8,15 @@
     <!-- 스타일 -->
     <link rel="stylesheet" th:href="@{/stylesheets/waitingRoom.css}" />
 
-    <!-- SockJS / STOMP (webjars) -->
-    <script th:src="@{/webjars/sockjs-client/sockjs.min.js}"></script>
-    <script th:src="@{/webjars/stomp-websocket/stomp.min.js}"></script>
+    <!-- SockJS / STOMP (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"
+            onerror="var s=document.createElement('script');s.src='https://unpkg.com/stompjs@2.3.3/lib/stomp.min.js';document.head.appendChild(s);"></script>
 </head>
 <body>
 <header class="wr-header">
     <h1>퀴즈 대기방</h1>
-    <div class="wr-status">
-        현재 인원: <span id="memberCount">0</span> 명
-    </div>
+    <div class="wr-status">현재 인원: <span id="memberCount">0</span> 명</div>
 </header>
 
 <main class="wr-main">
@@ -37,85 +36,7 @@
     </section>
 </main>
 
-<!-- 페이지 전용 JS (있다면 유지) -->
+<!-- 페이지 전용 JS: **이 한 줄만** 남겨두세요 -->
 <script th:src="@{/javascripts/waitingRoom.js}"></script>
-
-<!-- 실시간 대기방 스크립트 -->
-<script th:inline="javascript">
-    // 서버에서 내려주는 값(없으면 기본값)
-    const roomId = /*[[${roomId}]]*/ 'ROOM1';
-    const user   = /*[[${#authentication?.name}]]*/ 'guest';
-
-    // WebSocket 연결
-    const sock  = new SockJS('/ws');
-    const stomp = Stomp.over(sock);
-    stomp.debug = null; // 콘솔 로그 비활성(원하면 주석 처리)
-
-    function connect() {
-      stomp.connect({}, onConnected, onError);
-    }
-
-    function onConnected() {
-      // 방 브로드캐스트 구독
-      stomp.subscribe('/topic/room/' + roomId, onMessage);
-
-      // 입장 알리기
-      sendJoin();
-    }
-
-    function onError(err) {
-      console.error('WS error:', err);
-      // 간단 재연결
-      setTimeout(connect, 2000);
-    }
-
-    function onMessage(frame) {
-      const body = JSON.parse(frame.body);
-      if (body.type === 'join') {
-        appendLog(`${body.user} 님 입장 (${body.count})`);
-        updateMemberCount(body.count);
-      } else if (body.type === 'leave') {
-        appendLog(`${body.user} 님 퇴장 (${body.count})`);
-        updateMemberCount(body.count);
-      } else if (body.type === 'start') {
-        appendLog(`게임 시작! 현재 인원 ${body.count}`);
-        // 필요 시 게임방으로 이동
-        window.location.href = /*[[@{/gameroom}]]*/ '/gameroom' + `?roomId=${encodeURIComponent(roomId)}`;
-      }
-    }
-
-    function sendJoin() {
-      stomp.send('/app/room/join', {}, JSON.stringify({ roomId, user }));
-    }
-
-    function sendLeave() {
-      try {
-        stomp.send('/app/room/leave', {}, JSON.stringify({ roomId, user }));
-      } catch (e) { /* no-op */ }
-    }
-
-    function startGame() {
-      stomp.send('/app/room/start', {}, JSON.stringify({ roomId }));
-    }
-
-    // 페이지 이탈 시 퇴장
-    window.addEventListener('beforeunload', sendLeave);
-
-    // UI 유틸
-    function appendLog(text) {
-      const box = document.getElementById('log');
-      const p = document.createElement('p');
-      p.textContent = text;
-      box.appendChild(p);
-      box.scrollTop = box.scrollHeight;
-    }
-
-    function updateMemberCount(n) {
-      document.getElementById('memberCount').textContent = n ?? 0;
-    }
-
-    // 연결 시작
-    connect();
-</script>
 </body>
 </html>

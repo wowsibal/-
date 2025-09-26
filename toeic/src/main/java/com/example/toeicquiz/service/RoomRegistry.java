@@ -1,36 +1,36 @@
-// "방 상태" 메모리 저장소
 package com.example.toeicquiz.service;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Component
+@Service
 public class RoomRegistry {
-    // roomId -> 현재 참가자 집합
+
     private final Map<String, Set<String>> members = new ConcurrentHashMap<>();
 
-    public synchronized int join(String roomId, String user) {
-        members.computeIfAbsent(roomId, k -> ConcurrentHashMap.newKeySet()).add(user);
-        return members.get(roomId).size();
+    public int join(String roomId, String user) {
+        Assert.hasText(roomId, "roomId must not be empty");
+        if (!StringUtils.hasText(user)) user = "guest";
+        Set<String> set = members.computeIfAbsent(roomId, k -> ConcurrentHashMap.newKeySet());
+        set.add(user);
+        return set.size();
     }
 
-    public synchronized int leave(String roomId, String user) {
+    public int leave(String roomId, String user) {
+        if (!StringUtils.hasText(roomId)) return 0;
         Set<String> set = members.get(roomId);
-        if (set != null) {
-            set.remove(user);
-            if (set.isEmpty()) members.remove(roomId);
-            else return set.size();
-        }
-        return 0;
+        if (set == null) return 0;
+        if (StringUtils.hasText(user)) set.remove(user);
+        if (set.isEmpty()) members.remove(roomId);
+        return set.size();
     }
 
-    public synchronized int count(String roomId) {
+    public int count(String roomId) {
+        if (!StringUtils.hasText(roomId)) return 0;
         return members.getOrDefault(roomId, Collections.emptySet()).size();
-    }
-
-    public synchronized Set<String> list(String roomId) {
-        return new HashSet<>(members.getOrDefault(roomId, Collections.emptySet()));
     }
 }

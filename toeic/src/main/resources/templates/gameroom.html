@@ -1,28 +1,57 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>Game Room</title>
-    <link rel="stylesheet" th:href="@{/stylesheets/style.css}">
-    <script th:src="@{/javascripts/gameRoom.js}"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>게임방 | Quizgame</title>
+
+    <!-- 스타일 -->
+    <link rel="stylesheet" th:href="@{/stylesheets/gameroom.css}" />
+
+    <!-- SockJS / STOMP (CDN 버전) -->
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"
+            onerror="var s=document.createElement('script');s.src='https://unpkg.com/stompjs@2.3.3/lib/stomp.min.js';document.head.appendChild(s);"></script>
+    <script src="/javascripts/gameroom.js"></script>
 </head>
 <body>
-<h1>게임 방</h1>
+<header class="gr-header">
+    <h1>게임방</h1>
+    <div class="gr-meta">
+        <span>방 ID: <strong id="roomLabel" th:text="${param.roomId} ?: ${roomId} ?: 'ROOM1'">ROOM1</strong></span>
+        <span>나: <strong id="userLabel" th:text="${#authentication?.name} ?: 'guest'">guest</strong></span>
+    </div>
+</header>
 
-<div id="room-info">
-    <p>방 ID: <span id="room-id" th:text="${roomId}">ROOM1</span></p>
-    <p>사용자: <span id="user-name" th:text="${#authentication?.name}">guest</span></p>
-</div>
+<main class="gr-main">
+    <section class="gr-status">
+        현재 인원: <span id="memberCount">0</span> 명
+    </section>
 
-<div id="messages"></div>
+    <section class="gr-board">
+        <!-- 문제/진행 영역 (원래 있던 UI 유지) -->
+        <div id="questionArea"></div>
+        <div id="answerArea"></div>
+    </section>
+
+    <section class="gr-log">
+        <h2>이벤트</h2>
+        <div id="log" class="gr-logbox"></div>
+    </section>
+
+    <section class="gr-actions">
+        <a class="btn back" th:href="@{/start}">종료하고 나가기</a>
+    </section>
+</main>
+
+<!-- 페이지 전용 JS (있다면 유지) -->
+<script th:src="@{/javascripts/gameRoom.js}"></script>
 
 <!-- 게임방 실시간 스크립트 -->
 <script th:inline="javascript">
-    // roomId는 쿼리스트링(param.roomId) 우선, 없으면 모델의 roomId 또는 기본값
-    const roomId = /*[[${param.roomId} ?: ${roomId} ?: 'ROOM1']]*/ 'ROOM1';
-    const user   = /*[[${#authentication?.name} ?: 'guest']]*/ 'guest';
+    // roomId는 URL 파라미터 > 모델 값 > 기본값 순으로
+    const roomId = /*[[${param.roomId} ?: ${roomId} ?: 'ROOM1']]]*/ 'ROOM1';
+    const user   = /*[[${#authentication?.name} ?: 'guest']]]*/ 'guest';
 
     const sock  = new SockJS('/ws');
     const stomp = Stomp.over(sock);
@@ -33,38 +62,72 @@
     }
 
     function onConnected() {
-      // 해당 방에 구독
-      stomp.subscribe('/topic/room/' + roomId, onMessage);
+      console.log('[WS] connected (game room):', roomId, user);
 
-      // 방 참가 알림
-      stomp.send('/app/room/join', {}, JSON.stringify({ roomId, user }));
+      // 대기방과 동일한 브로드캐스트 채널을 구독해 인원수/시작 등 공통 이벤트 수신
+      stomp.subscribe('/topic/room/' + roomId, onRoomEvent);
+
+      // (선택) 게임 전용 채널이 있다면 구독
+      // stomp.subscribe('/topic/game/' + roomId, onGameEvent);
+
+      // 입장 알림
+      sendJoin();
     }
 
     function onError(err) {
       console.error('WS error:', err);
-      setTimeout(connect, 2000); // 재연결 시도
+      setTimeout(connect, 2000);
     }
 
-    function onMessage(frame) {
+    function onRoomEvent(frame) {
       const body = JSON.parse(frame.body);
-      const div = document.getElementById("messages");
-      const p = document.createElement("p");
-      p.textContent = body.user + ": " + body.message;
-      div.appendChild(p);
+      if (body.type === 'join') {
+        appendLog(`${body.user} 님 입장 (${body.count})`);
+        updateMemberCount(body.count);
+      } else if (body.type === 'leave') {
+        appendLog(`${body.user} 님 퇴장 (${body.count})`);
+        updateMemberCount(body.count);
+      } else if (body.type === 'start') {
+        appendLog(`게임 시작! 현재 인원 ${body.count}`);
+        updateMemberCount(body.count);
+        // 필요 시 문제 로딩 트리거
+        // loadNextQuestion();
+      }
     }
 
-    // 페이지 떠날 때 방 나가기
-    window.addEventListener('beforeunload', () => {
+    // 게임 전용 이벤트(문제/채점 등)를 쓰는 경우 사용
+    // function onGameEvent(frame) {
+    //   const body = JSON.parse(frame.body);
+    //   // body.action === 'QUESTION' | 'ANSWER' | 'RESULT' ...
+    // }
+
+    function sendJoin() {
+      console.log('[WS] send join (game room)', roomId, user);
+      stomp.send('/app/room/join', {}, JSON.stringify({ roomId, user }));
+    }
+
+    function sendLeave() {
       try {
         stomp.send('/app/room/leave', {}, JSON.stringify({ roomId, user }));
-        stomp.disconnect(() => {}, {});
-      } catch (e) {
-        console.error(e);
-      }
-    });
+      } catch (e) {}
+    }
+
+    // 페이지 이탈 시 퇴장
+    window.addEventListener('beforeunload', sendLeave);
+
+    // ------- UI helpers -------
+    function appendLog(text) {
+      const box = document.getElementById('log');
+      const p = document.createElement('p');
+      p.textContent = text;
+      box.appendChild(p);
+      box.scrollTop = box.scrollHeight;
+    }
+    function updateMemberCount(n) {
+      document.getElementById('memberCount').textContent = n ?? 0;
+    }
 
     connect();
 </script>
-
 </body>
 </html>
