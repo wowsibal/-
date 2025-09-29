@@ -39,7 +39,7 @@
   }
 
   function onConnected() {
-    console.log('[WS] connected gameroom:', { roomId, user });
+    console.log('[WS] connected gameRoom:', { roomId, user });
     // 방 공통 이벤트 구독(입퇴장/시작 등)
     stomp.subscribe('/topic/room/' + roomId, onRoomEvent);
 

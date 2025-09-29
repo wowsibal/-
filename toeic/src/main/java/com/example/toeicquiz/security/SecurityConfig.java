@@ -36,7 +36,7 @@ public class SecurityConfig {
                         // 페이지(뷰) 경로: GET은 공개
                         .requestMatchers(HttpMethod.GET,
                                 "/", "/login", "/signup", "/start",
-                                "/waitingRoom", "/gameroom", "/ranking"
+                                "/waitingRoom", "/gameRoom", "/ranking"
                         ).permitAll()
 
                         // WebSocket 핸드셰이크

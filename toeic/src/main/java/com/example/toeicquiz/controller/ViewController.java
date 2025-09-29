@@ -20,9 +20,9 @@ public class ViewController {
     }
 
     // 게임 페이지
-    @GetMapping("/gameroom")
+    @GetMapping("/gameRoom")
     public String gameRoomPage() {
-        return "gameroom"; // templates/gameroom.html
+        return "gameroom"; // templates/gameRoom.html
     }
 
     // 랭킹 페이지

@@ -77,7 +77,7 @@
         break;
       case 'start':
         appendLog(`게임 시작! 현재 인원 ${body.count}`);
-        location.href = `/gameroom?roomId=${encodeURIComponent(roomId)}`;
+        location.href = `/gameRoom?roomId=${encodeURIComponent(roomId)}`;
         break;
     }
   }

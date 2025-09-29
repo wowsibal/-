@@ -18,8 +18,8 @@ public class PageController {
     @GetMapping("/waitingRoom")
     public String waitingRoom() { return "waitingRoom"; }
 
-    @GetMapping("/gameroom")
-    public String gameroom() { return "gameroom"; }
+    @GetMapping({"/gameRoom", "/gameroom"})
+    public String gameRoom() { return "gameRoom"; }
 
     @GetMapping("/ranking")
     public String ranking() { return "ranking"; }
